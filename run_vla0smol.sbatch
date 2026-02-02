@@ -1,12 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=vla0smol
 #SBATCH --partition=PGR-Standard
-#SBATCH --gres=gpu:1
+#SBATCH --nodelist=herman
+#SBATCH --gres=gpu:h200:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=04:00:00
-#SBATCH --output=%x-%j.out
-#SBATCH --error=%x-%j.err
+#SBATCH --output=logs/%x-%j.out
+#SBATCH --error=logs/%x-%j.err
 
 set -euo pipefail
 
