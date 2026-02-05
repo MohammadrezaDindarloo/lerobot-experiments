@@ -6,8 +6,9 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 fi
 
 # Run evaluation
+# --policy.path="Robot-Learning-Collective/VLA-0-Smol" \
 lerobot-eval \
-  --policy.path="Robot-Learning-Collective/VLA-0-Smol" \
+  --policy.path="MohammadrezaD/vla0_smol_pusht" \
   --policy.n_action_steps=0 \
   --policy.ensemble_size=8 \
   --env.type=libero \
