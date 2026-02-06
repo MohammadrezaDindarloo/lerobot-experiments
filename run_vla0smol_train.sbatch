@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=vla0smol
+#SBATCH --job-name=vla0smol-train
 #SBATCH --partition=PGR-Standard
 #SBATCH --nodelist=herman
 #SBATCH --gres=gpu:h200:1
@@ -11,36 +11,30 @@
 
 set -euo pipefail
 
-export HF_HUB_ENABLE_HF_TRANSFER=1         # optional: faster downloads
-export HF_TOKEN="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"  # <-- your write token
+export HF_HUB_ENABLE_HF_TRANSFER=1
+# export HF_TOKEN="your_token"  # Prefer to pass via env or huggingface-cli login
 
-# Start in the directory you submitted from
 cd "$SLURM_SUBMIT_DIR"
 
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $(hostname)"
 echo "Start time: $(date)"
 
-# Show what GPU Slurm gave you (useful for debugging)
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "SLURM_JOB_GPUS=${SLURM_JOB_GPUS:-<unset>}"
 echo "SLURM_STEP_GPUS=${SLURM_STEP_GPUS:-<unset>}"
 nvidia-smi || true
 
-# Activate conda
 if [ -x /opt/conda/bin/conda ]; then
   eval "$(/opt/conda/bin/conda shell.bash hook)"
 else
-  # fallback if conda is initialized via your shell startup files
   source ~/.bashrc
 fi
 conda activate vla0smol
 
-# (Optional) re-check after env activation
 echo "After conda: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 nvidia-smi || true
 
-# Pick a cache/work directory that exists (avoid AFS quota)
 WORKDIR="/work/$USER"
 if [ ! -d "$WORKDIR" ]; then
   WORKDIR="/tmp/$USER"
@@ -53,17 +47,12 @@ export XDG_CACHE_HOME="$WORKDIR/cache"
 export TRANSFORMERS_CACHE="$HF_HOME"
 export HF_HUB_CACHE="$HF_HOME/hub"
 
-# Rendering setup for MuJoCo/robosuite headless
 export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
 
-# Go to your repo
 cd /home/s2816905/repos/lerobot-experiments
 
-# Run your script
-chmod +x eval_vla0smol_cluster.sh
 chmod +x train_vla0smol_cluster.sh
-# ./eval_vla0smol_cluster.sh
 ./train_vla0smol_cluster.sh
 
 echo "End time: $(date)"
