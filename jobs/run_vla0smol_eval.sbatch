@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=02:00:00
-#SBATCH --output=logs/%x-%j.out
-#SBATCH --error=logs/%x-%j.err
+#SBATCH --output=logs/%x/%x-%j.out
+#SBATCH --error=logs/%x/%x-%j.err
 
 set -euo pipefail
 
@@ -16,6 +16,9 @@ export HF_HUB_ENABLE_HF_TRANSFER=1
 # export HF_TOKEN="hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 cd "$SLURM_SUBMIT_DIR"
+
+mkdir -p logs
+mkdir -p logs/$SLURM_JOB_NAME
 
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $(hostname)"
