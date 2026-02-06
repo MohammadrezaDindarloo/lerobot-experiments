@@ -5,11 +5,14 @@
 #SBATCH --gres=gpu:h200:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --time=04:00:00
+#SBATCH --time=10:00:00
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 
 set -euo pipefail
+
+export HF_HUB_ENABLE_HF_TRANSFER=1         # optional: faster downloads
+export HF_TOKEN="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"  # <-- your write token
 
 # Start in the directory you submitted from
 cd "$SLURM_SUBMIT_DIR"
@@ -58,7 +61,9 @@ export PYOPENGL_PLATFORM=egl
 cd /home/s2816905/repos/lerobot-experiments
 
 # Run your script
-chmod +x vla0smol.sh
-./vla0smol.sh
+chmod +x eval_vla0smol_cluster.sh
+chmod +x train_vla0smol_cluster.sh
+# ./eval_vla0smol_cluster.sh
+./train_vla0smol_cluster.sh
 
 echo "End time: $(date)"

@@ -13,8 +13,10 @@
 # limitations under the License.
 import abc
 import builtins
+import importlib.util
 import json
 import os
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from logging import getLogger
@@ -213,3 +215,30 @@ class PreTrainedConfig(draccus.ChoiceRegistry, HubMixin, abc.ABC):  # type: igno
         cli_overrides = policy_kwargs.pop("cli_overrides", [])
         with draccus.config_type("json"):
             return draccus.parse(orig_config.__class__, config_file, args=cli_overrides)
+
+
+def _register_custom_policy_configs() -> None:
+    """
+    Register custom policy configs without importing lerobot.policies package.
+
+    Importing lerobot.policies triggers heavy imports and can cause circular
+    dependencies during config parsing. We load the config module directly
+    from file instead.
+    """
+    config_path = Path(__file__).resolve().parents[1] / "policies" / "vla0_smol_cons" / "configuration_vla0_smol_cons.py"
+    if not config_path.exists():
+        return
+
+    module_name = "lerobot.policies.vla0_smol_cons.configuration_vla0_smol_cons"
+    if module_name in sys.modules:
+        return
+
+    spec = importlib.util.spec_from_file_location(module_name, config_path)
+    if spec is None or spec.loader is None:
+        return
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+
+_register_custom_policy_configs()

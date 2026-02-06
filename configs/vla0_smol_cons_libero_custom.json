@@ -1,0 +1,59 @@
+{
+    "dataset": {
+        "repo_id": "HuggingFaceVLA/libero"
+    },
+    "env": {
+        "type": "libero",
+        "task": "libero_object"
+    },
+    "policy": {
+        "type": "vla0_smol_cons",
+        "vlm_checkpoint": "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
+        "n_obs_steps": 1,
+        "device": "cuda",
+        "push_to_hub": true,
+        "repo_id": "MohammadrezaD/vla0_smol_cons_pusht",
+        "chunk_size": 8,
+        "n_action_steps": 8,
+        "optimizer_lr": 5e-5,
+        "optimizer_betas": [
+            0.9,
+            0.95
+        ],
+        "optimizer_eps": 1e-08,
+        "optimizer_weight_decay": 0.01,
+        "scheduler_warmup_steps": 1000,
+        "scheduler_decay_steps": 100000,
+        "scheduler_decay_lr": 5e-06,
+        "precision": "float32",
+        "freeze_vision_encoder": false,
+        "do_image_splitting": false,
+        "drop_n_last_frames": 1,
+        "grad_clip_norm": 1,
+        "crop_shape": [
+            230,
+            230
+        ],
+        "relative_actions": false,
+        "use_state": true,
+        "kinematics_prompt": "Kinematics: joint_limits_rad=[[-2.8973,2.8973],[-1.7628,1.7628],[-2.8973,2.8973],[-3.0718,-0.0698],[-2.8973,2.8973],[-0.0175,3.7525],[-2.8973,2.8973]], vel_limits_rad_s=[2.175,2.175,2.175,2.175,2.61,2.61,2.61], accel_limits_rad_s2=[15,7.5,10,12.5,15,20,20].",
+        "kinematics_dh_params": null,
+        "kinematics_prompt_prefix": "Kinematics Limitation: "
+    },
+    "num_workers": 8,
+    "batch_size": 16,
+    "steps": 60000,
+    "eval_freq": 10000,
+    "log_freq": 200,
+    "save_checkpoint": true,
+    "save_freq": 10000,
+    "profile_step_num": -1,
+    "eval": {
+        "n_episodes": 16,
+        "batch_size": 16
+    },
+    "wandb": {
+        "enable": true,
+        "project": "lerobot"
+    }
+}
