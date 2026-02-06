@@ -1,18 +1,19 @@
 #!/bin/bash
-#SBATCH --job-name=vla0smol-eval
+#SBATCH --job-name=vla0smol-cons
 #SBATCH --partition=PGR-Standard
 #SBATCH --nodelist=herman
 #SBATCH --gres=gpu:h200:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --time=02:00:00
+#SBATCH --time=10:00:00
 #SBATCH --output=logs/%x-%j.out
 #SBATCH --error=logs/%x-%j.err
 
 set -euo pipefail
 
 export HF_HUB_ENABLE_HF_TRANSFER=1
-# export HF_TOKEN="your_token"  # Prefer to pass via env or huggingface-cli login
+# Optional: set your HF token here on the cluster (or use `huggingface-cli login`)
+# export HF_TOKEN="hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 cd "$SLURM_SUBMIT_DIR"
 
@@ -52,7 +53,7 @@ export PYOPENGL_PLATFORM=egl
 
 cd /home/s2816905/repos/lerobot-experiments
 
-chmod +x eval_vla0smol_cluster.sh
-./eval_vla0smol_cluster.sh
+chmod +x scripts/cluster/train_vla0smol_cons.sh
+CONFIG_PATH=configs/vla0_smol_cons_libero_custom.json ./scripts/cluster/train_vla0smol_cons.sh
 
 echo "End time: $(date)"

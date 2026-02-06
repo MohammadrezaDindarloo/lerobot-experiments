@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=vla0smol-train
+#SBATCH --job-name=vla0smol-base
 #SBATCH --partition=PGR-Standard
 #SBATCH --nodelist=herman
 #SBATCH --gres=gpu:h200:1
@@ -12,7 +12,8 @@
 set -euo pipefail
 
 export HF_HUB_ENABLE_HF_TRANSFER=1
-# export HF_TOKEN="your_token"  # Prefer to pass via env or huggingface-cli login
+# Optional: set your HF token here on the cluster (or use `huggingface-cli login`)
+# export HF_TOKEN="hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 cd "$SLURM_SUBMIT_DIR"
 
@@ -52,7 +53,7 @@ export PYOPENGL_PLATFORM=egl
 
 cd /home/s2816905/repos/lerobot-experiments
 
-chmod +x train_vla0smol_cluster.sh
-./train_vla0smol_cluster.sh
+chmod +x scripts/cluster/train_vla0smol_base.sh
+CONFIG_PATH=configs/vla0_smol_libero_custom.json ./scripts/cluster/train_vla0smol_base.sh
 
 echo "End time: $(date)"
