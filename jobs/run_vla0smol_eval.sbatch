@@ -39,17 +39,37 @@ conda activate vla0smol
 echo "After conda: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 nvidia-smi || true
 
-WORKDIR="/work/$USER"
-if [ ! -d "$WORKDIR" ]; then
-  WORKDIR="/tmp/$USER"
+# Fail fast if CUDA is not available in this environment
+python - <<'PY'
+import torch
+print("torch", torch.__version__)
+print("cuda available:", torch.cuda.is_available())
+print("cuda devices:", torch.cuda.device_count())
+if not torch.cuda.is_available():
+    raise SystemExit("CUDA is not available in this environment.")
+PY
+
+WORKDIR=""
+for CAND in "/work/$USER" "/lustre/$USER" "/disk/scratch/$USER" "/tmp/$USER"; do
+  if [ -d "$CAND" ] || mkdir -p "$CAND" 2>/dev/null; then
+    WORKDIR="$CAND"
+    break
+  fi
+done
+if [ -z "$WORKDIR" ]; then
+  echo "No writable workdir found." >&2
+  exit 1
 fi
-mkdir -p "$WORKDIR"/cache/{huggingface,torch}
+mkdir -p "$WORKDIR"/cache/{huggingface,torch,datasets} "$WORKDIR"/tmp
 
 export HF_HOME="$WORKDIR/cache/huggingface"
 export TORCH_HOME="$WORKDIR/cache/torch"
 export XDG_CACHE_HOME="$WORKDIR/cache"
 export TRANSFORMERS_CACHE="$HF_HOME"
 export HF_HUB_CACHE="$HF_HOME/hub"
+export HF_DATASETS_CACHE="$WORKDIR/cache/datasets"
+export DATASETS_CACHE="$WORKDIR/cache/datasets"
+export TMPDIR="$WORKDIR/tmp"
 
 export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
