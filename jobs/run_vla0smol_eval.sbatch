@@ -8,12 +8,14 @@
 #SBATCH --time=02:00:00
 #SBATCH --output=logs/%x/%x-%j.out
 #SBATCH --error=logs/%x/%x-%j.err
+#SBATCH --mail-user=s2816905@ed.ac.uk
+#SBATCH --mail-type=BEGIN,END,FAIL
 
 set -euo pipefail
 
 export HF_HUB_ENABLE_HF_TRANSFER=1
 # Optional: set your HF token here on the cluster (or use `huggingface-cli login`)
-# export HF_TOKEN="hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# export HF_TOKEN=""
 
 cd "$SLURM_SUBMIT_DIR"
 

@@ -250,7 +250,7 @@ class LiberoEnv(EnvConfig):
     obs_type: str = "pixels_agent_pos"
     render_mode: str = "rgb_array"
     camera_name: str = "agentview_image,robot0_eye_in_hand_image"
-    task_ids: Iterable[int] | None = None
+    task_ids: list[int] | None = None
     init_states: bool = True
     camera_name_mapping: dict[str, str] | None = None
     observation_height: int = 360

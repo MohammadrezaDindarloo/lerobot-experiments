@@ -9,6 +9,25 @@ if [[ "${CONFIG_PATH}" != /* ]]; then
   CONFIG_PATH="${REPO_ROOT}/${CONFIG_PATH}"
 fi
 
+NUM_GPUS="${NUM_GPUS:-1}"
+MASTER_PORT="${MASTER_PORT:-29500}"
+DATASET_ROOT="${DATASET_ROOT:-}"
+FORCE_RESUME="${FORCE_RESUME:-}"
+
+EXTRA_ARGS=()
+if [[ -n "${DATASET_ROOT}" ]]; then
+  EXTRA_ARGS+=(--dataset.root "${DATASET_ROOT}")
+fi
+if [[ -n "${FORCE_RESUME}" ]]; then
+  EXTRA_ARGS+=("--resume=${FORCE_RESUME}")
+fi
+
 PYTHONPATH="${REPO_ROOT}/src${PYTHONPATH:+:$PYTHONPATH}" \
-python -m lerobot.scripts.lerobot_train \
-  --config_path "${CONFIG_PATH}"
+accelerate launch \
+  --num_processes "${NUM_GPUS}" \
+  --num_machines 1 \
+  --machine_rank 0 \
+  --main_process_port "${MASTER_PORT}" \
+  -m lerobot.scripts.lerobot_train \
+  "--config_path=${CONFIG_PATH}" \
+  "${EXTRA_ARGS[@]}"
