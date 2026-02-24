@@ -12,14 +12,25 @@ export ACCELERATE_MIXED_PRECISION=no
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# POLICY_PATH can be a local checkpoint directory or a Hugging Face repo id
+# Override by setting POLICY_PATH in the environment.
+POLICY_PATH="${POLICY_PATH:-MohammadrezaD/vla0_smol_pusht}"
+
 # Default to latest local checkpoint if POLICY_PATH not provided
 if [[ -z "${POLICY_PATH:-}" ]]; then
   POLICY_PATH=$(ls -td "${REPO_ROOT}"/outputs/train/*/*/checkpoints/last/pretrained_model 2>/dev/null | head -n 1 || true)
 fi
 
-if [[ -z "${POLICY_PATH:-}" || ! -d "${POLICY_PATH}" ]]; then
+# Validate only if POLICY_PATH is a local directory.
+if [[ -z "${POLICY_PATH:-}" ]]; then
   echo "No local policy checkpoint found. Set POLICY_PATH to a local checkpoint or HF repo id." >&2
   exit 1
+fi
+if [[ "${POLICY_PATH}" == /* || "${POLICY_PATH}" == ./* || "${POLICY_PATH}" == ../* ]]; then
+  if [[ ! -d "${POLICY_PATH}" ]]; then
+    echo "Local policy path not found: ${POLICY_PATH}" >&2
+    exit 1
+  fi
 fi
 
 ENV_TYPE="${ENV_TYPE:-libero}"
