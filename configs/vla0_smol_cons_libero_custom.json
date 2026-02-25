@@ -12,7 +12,7 @@
         "n_obs_steps": 1,
         "device": "cuda",
         "push_to_hub": true,
-        "repo_id": "MohammadrezaD/vla0_smol_cons_pusht",
+        "repo_id": "MohammadrezaD/vla0_smol_cons_libero_custom",
         "chunk_size": 8,
         "n_action_steps": 8,
         "optimizer_lr": 5e-5,
