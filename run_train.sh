@@ -10,13 +10,14 @@ QUEUE="${QUEUE:-eidf029ns-user-queue}"
 EIDF_USER="${EIDF_USER:-s2816905-infk8}"
 PROJECT_NAME="${PROJECT_NAME:-lerobot-exp}"
 PVC="${PVC:-${PROJECT_NAME}-pvc}"
-IMAGE="${IMAGE:-huggingface/transformers-pytorch-gpu:latest}"
+IMAGE="${IMAGE:-docker.io/mohammadrezadindarloo/lerobot-vla0smol:latest}"
 REMOTE_CODE_DIR="${REMOTE_CODE_DIR:-/mnt/ceph/code}"
 
 TRAIN_CPU="${TRAIN_CPU:-6}"
-TRAIN_MEM="${TRAIN_MEM:-24Gi}"
-TRAIN_GPU="${TRAIN_GPU:-1}"
+TRAIN_MEM="${TRAIN_MEM:-96Gi}"
+TRAIN_GPU="${TRAIN_GPU:-4}"
 GPU_PRODUCT="${GPU_PRODUCT:-NVIDIA-A100-SXM4-40GB}"
+SHM_SIZE="${SHM_SIZE:-16Gi}"
 
 NUM_GPUS="${NUM_GPUS:-$TRAIN_GPU}"
 MASTER_PORT="${MASTER_PORT:-29500}"
@@ -35,6 +36,7 @@ BUILD_TOOLS_CMD="${BUILD_TOOLS_CMD:-pip install --no-cache-dir cmake ninja}"
 USE_CREDENTIALS_SECRET="${USE_CREDENTIALS_SECRET:-1}"
 CREDENTIALS_SECRET_NAME="${CREDENTIALS_SECRET_NAME:-ml-credentials}"
 SUBMIT_ONLY="${SUBMIT_ONLY:-1}"                 # 1=submit and exit, 0=submit/wait/stream logs
+DISABLE_EVAL="${DISABLE_EVAL:-0}"               # 1=disable in-training eval
 
 log() { echo "[INFO] $*"; }
 
@@ -88,12 +90,14 @@ log "Config:         $CONFIG_PATH"
 log "Output base:    $OUTPUT_DIR"
 log "Run name:       $RUN_NAME"
 log "Resources:      CPU=$TRAIN_CPU MEM=$TRAIN_MEM GPU=$TRAIN_GPU"
+log "Shared memory:  $SHM_SIZE"
 log "GPU product:    $GPU_PRODUCT"
 log "Install deps:   $INSTALL_DEPS"
 log "TF compat fix:  $FORCE_TRANSFORMERS_COMPAT"
 log "Build tools:    $PREINSTALL_BUILD_TOOLS"
 log "Use secret:     $USE_CREDENTIALS_SECRET (name=${CREDENTIALS_SECRET_NAME})"
 log "Submit only:    $SUBMIT_ONLY"
+log "Disable eval:   $DISABLE_EVAL"
 
 if ! kubectl -n "$NS" get pvc "$PVC" >/dev/null 2>&1; then
   echo "[ERROR] PVC '$PVC' not found. Run ./run_setup.sh first."
@@ -111,6 +115,12 @@ fi
 DATASET_ARG=""
 if [[ -n "$DATASET_ROOT" ]]; then
   DATASET_ARG="--dataset.root=${DATASET_ROOT}"
+fi
+
+EVAL_ARG=""
+if [[ "$DISABLE_EVAL" == "1" ]]; then
+  # Keep eval effectively disabled while preserving training behavior.
+  EVAL_ARG="--eval_freq=999999999"
 fi
 
 log "Creating training job..."
@@ -149,7 +159,7 @@ metadata:
     kueue.x-k8s.io/queue-name: $QUEUE
 spec:
   backoffLimit: 1
-  ttlSecondsAfterFinished: 1800
+  ttlSecondsAfterFinished: 18000
   template:
     metadata:
       labels:
@@ -177,8 +187,52 @@ ${ENV_SECRET_BLOCK}
             export HF_HOME=/mnt/ceph/.cache/huggingface
             export TRANSFORMERS_CACHE=/mnt/ceph/.cache/huggingface
             export PYTHONPATH="${REMOTE_CODE_DIR}/src:\${PYTHONPATH:-}"
+            export LIBERO_CONFIG_PATH="\${LIBERO_CONFIG_PATH:-/mnt/ceph/.libero}"
+            export LIBERO_DATASETS_DIR="\${LIBERO_DATASETS_DIR:-/mnt/ceph/datasets/libero}"
 
-            mkdir -p /mnt/ceph/outputs /mnt/ceph/.cache/huggingface
+            mkdir -p /mnt/ceph/outputs /mnt/ceph/.cache/huggingface "\$LIBERO_CONFIG_PATH" "\$LIBERO_DATASETS_DIR"
+
+            # Avoid interactive LIBERO setup prompt in non-interactive Kubernetes jobs.
+            python3 - <<'PY'
+            import os
+            import sys
+            from pathlib import Path
+
+            cfg_dir = Path(os.environ.get("LIBERO_CONFIG_PATH", "/mnt/ceph/.libero"))
+            cfg_file = cfg_dir / "config.yaml"
+            dataset_dir = Path(os.environ.get("LIBERO_DATASETS_DIR", "/mnt/ceph/datasets/libero"))
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+
+            if cfg_file.exists():
+                print(f"Using existing LIBERO config: {cfg_file}")
+                raise SystemExit(0)
+
+            libero_root = None
+            for path_entry in map(Path, sys.path):
+                candidate = path_entry / "libero" / "libero"
+                if (candidate / "__init__.py").exists():
+                    libero_root = candidate
+                    break
+
+            if libero_root is None:
+                print("[ERROR] Could not locate libero package path on sys.path.", file=sys.stderr)
+                raise SystemExit(1)
+
+            cfg_dir.mkdir(parents=True, exist_ok=True)
+            cfg_file.write_text(
+                "\n".join(
+                    [
+                        f"benchmark_root: {libero_root}",
+                        f"bddl_files: {libero_root / 'bddl_files'}",
+                        f"init_states: {libero_root / 'init_files'}",
+                        f"datasets: {dataset_dir}",
+                        f"assets: {libero_root / 'assets'}",
+                        "",
+                    ]
+                )
+            )
+            print(f"Initialized LIBERO config: {cfg_file}")
+            PY
 
             if [[ "${INSTALL_DEPS}" == "1" ]]; then
               echo "=== Installing dependencies ==="
@@ -206,7 +260,8 @@ ${ENV_SECRET_BLOCK}
               -m lerobot.scripts.lerobot_train \
               "--config_path=${CONFIG_PATH}" \
               "--output_dir=${OUTPUT_DIR}/${RUN_NAME}" \
-              ${DATASET_ARG}
+              ${DATASET_ARG} \
+              ${EVAL_ARG}
         resources:
           requests:
             cpu: ${TRAIN_CPU}
@@ -218,10 +273,16 @@ ${ENV_SECRET_BLOCK}
         volumeMounts:
         - name: v
           mountPath: /mnt/ceph
+        - name: dshm
+          mountPath: /dev/shm
       volumes:
       - name: v
         persistentVolumeClaim:
           claimName: $PVC
+      - name: dshm
+        emptyDir:
+          medium: Memory
+          sizeLimit: "${SHM_SIZE}"
 YAML
 )"
 

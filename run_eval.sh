@@ -167,8 +167,52 @@ ${ENV_SECRET_BLOCK}
             export HF_HOME=/mnt/ceph/.cache/huggingface
             export TRANSFORMERS_CACHE=/mnt/ceph/.cache/huggingface
             export PYTHONPATH="${REMOTE_CODE_DIR}/src:\${PYTHONPATH:-}"
+            export LIBERO_CONFIG_PATH="\${LIBERO_CONFIG_PATH:-/mnt/ceph/.libero}"
+            export LIBERO_DATASETS_DIR="\${LIBERO_DATASETS_DIR:-/mnt/ceph/datasets/libero}"
 
-            mkdir -p /mnt/ceph/outputs /mnt/ceph/.cache/huggingface
+            mkdir -p /mnt/ceph/outputs /mnt/ceph/.cache/huggingface "\$LIBERO_CONFIG_PATH" "\$LIBERO_DATASETS_DIR"
+
+            # Avoid interactive LIBERO setup prompt in non-interactive Kubernetes jobs.
+            python3 - <<'PY'
+            import os
+            import sys
+            from pathlib import Path
+
+            cfg_dir = Path(os.environ.get("LIBERO_CONFIG_PATH", "/mnt/ceph/.libero"))
+            cfg_file = cfg_dir / "config.yaml"
+            dataset_dir = Path(os.environ.get("LIBERO_DATASETS_DIR", "/mnt/ceph/datasets/libero"))
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+
+            if cfg_file.exists():
+                print(f"Using existing LIBERO config: {cfg_file}")
+                raise SystemExit(0)
+
+            libero_root = None
+            for path_entry in map(Path, sys.path):
+                candidate = path_entry / "libero" / "libero"
+                if (candidate / "__init__.py").exists():
+                    libero_root = candidate
+                    break
+
+            if libero_root is None:
+                print("[ERROR] Could not locate libero package path on sys.path.", file=sys.stderr)
+                raise SystemExit(1)
+
+            cfg_dir.mkdir(parents=True, exist_ok=True)
+            cfg_file.write_text(
+                "\n".join(
+                    [
+                        f"benchmark_root: {libero_root}",
+                        f"bddl_files: {libero_root / 'bddl_files'}",
+                        f"init_states: {libero_root / 'init_files'}",
+                        f"datasets: {dataset_dir}",
+                        f"assets: {libero_root / 'assets'}",
+                        "",
+                    ]
+                )
+            )
+            print(f"Initialized LIBERO config: {cfg_file}")
+            PY
 
             if [[ "${INSTALL_DEPS}" == "1" ]]; then
               echo "=== Installing dependencies ==="
