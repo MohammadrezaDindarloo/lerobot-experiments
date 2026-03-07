@@ -57,3 +57,53 @@ DELETE_PVC=1 ./run_clean.sh
 
 - These scripts assume code is mounted from PVC at `/mnt/ceph/code` and outputs are written under `/mnt/ceph/outputs`.
 - Dependency install happens inside train/eval jobs by default for reproducibility (`INSTALL_DEPS=1`).
+
+## Use your local Conda env in EIDF image
+
+You cannot copy a macOS Conda environment binary directly into Linux.
+Instead, export a portable environment spec from your local env, build a Linux image from it, and run jobs with `INSTALL_DEPS=0`.
+
+### 1) Export local env to Linux-portable spec
+
+If your local env is `vla0smol`:
+
+```bash
+ENV_NAME=vla0smol scripts/eidf/export_conda_spec.sh
+```
+
+This writes:
+
+- `docker/conda/vla0smol.linux.yml`
+
+### 2) Build and push Linux image
+
+Set your container registry/repo, login first (`docker login ...`), then:
+
+```bash
+IMAGE_REPO=ghcr.io/<your-user>/lerobot-vla0smol \
+IMAGE_TAG=latest \
+CONDA_ENV_NAME=vla0smol \
+CONDA_ENV_FILE=docker/conda/vla0smol.linux.yml \
+scripts/eidf/build_push_eidf_image.sh
+```
+
+Notes:
+- Default build platform is `linux/amd64` (good for A100 nodes).
+- If your cluster requires a different architecture, set `PLATFORM=...`.
+- The image build installs project deps by default with:
+  - `python -m pip install --no-cache-dir -e .[libero,vla0_smol]`
+- Override with `PIP_INSTALL_CMD='...'` if needed.
+
+### 3) Run EIDF jobs using that image
+
+Training:
+
+```bash
+IMAGE=ghcr.io/<your-user>/lerobot-vla0smol:latest INSTALL_DEPS=0 ./run_train.sh
+```
+
+Evaluation:
+
+```bash
+IMAGE=ghcr.io/<your-user>/lerobot-vla0smol:latest INSTALL_DEPS=0 ./run_eval.sh
+```

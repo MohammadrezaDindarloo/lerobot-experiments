@@ -1,0 +1,65 @@
+# Linux CUDA base image for EIDF GPU jobs.
+ARG CUDA_VERSION=12.4.1
+ARG UBUNTU_VERSION=22.04
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-runtime-ubuntu${UBUNTU_VERSION}
+
+ARG CONDA_ENV_NAME=vla0smol
+ARG CONDA_ENV_FILE=docker/conda/vla0smol.linux.yml
+ARG PIP_INSTALL_CMD="python -m pip install --no-cache-dir -e .[libero,vla0_smol]"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    MAMBA_ROOT_PREFIX=/opt/conda \
+    CONDA_ENV_NAME=${CONDA_ENV_NAME} \
+    PATH=/opt/conda/envs/${CONDA_ENV_NAME}/bin:/opt/conda/bin:${PATH}
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    build-essential \
+    bzip2 \
+    ca-certificates \
+    cmake \
+    curl \
+    ffmpeg \
+    git \
+    linux-libc-dev \
+    make \
+    libegl1 \
+    libgeos-dev \
+    libglib2.0-0 \
+    libgl1-mesa-glx \
+    libusb-1.0-0-dev \
+    ninja-build \
+    pkg-config \
+    portaudio19-dev \
+    speech-dispatcher \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install micromamba (single static binary).
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
+  | tar -xvj -C /tmp bin/micromamba \
+  && install -m 755 /tmp/bin/micromamba /usr/local/bin/micromamba \
+  && rm -rf /tmp/bin
+
+# Copy env spec and create environment.
+COPY ${CONDA_ENV_FILE} /tmp/environment.yml
+RUN sed -i '/^[[:space:]]*-[[:space:]]*cmake[[:space:]=<>]/d' /tmp/environment.yml \
+  && micromamba create -y -n ${CONDA_ENV_NAME} -f /tmp/environment.yml \
+  && micromamba clean -a -y
+
+# Copy minimal project files and install project dependencies in the image.
+WORKDIR /workspace/lerobot
+COPY pyproject.toml README.md MANIFEST.in requirements.in requirements-ubuntu.txt ./
+COPY src ./src
+RUN python -m pip install --upgrade pip \
+  && rm -f "/opt/conda/envs/${CONDA_ENV_NAME}/bin/cmake" \
+  && ln -s /usr/bin/cmake "/opt/conda/envs/${CONDA_ENV_NAME}/bin/cmake" \
+  && cmake --version \
+  && eval "${PIP_INSTALL_CMD}"
+
+# Quick sanity checks.
+RUN /bin/bash -lc "python --version" \
+  && /bin/bash -lc "which python" \
+  && /bin/bash -lc "python -c 'import sys; print(sys.platform)'"
+
+WORKDIR /workspace
+CMD ["/bin/bash", "-lc", "python --version && nvidia-smi || true && bash"]
